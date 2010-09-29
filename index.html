@@ -34,18 +34,35 @@ TODO
 
 <script type="text/javascript">
 
-// The entry point to our function
-function webGLStart(){
-    S9WebGL.initialize( $('webgl-canvas') );
-
-}
+var cube;
+var shader;
 
 // Load our resources
 S9WebGL.setupResources = function () {
-    ResourceLoader.addResource("shaders/per-fragment-lighting-fs.txt");
-    ResourceLoader.addResource("shaders/per-fragment-lighting-vs.txt");    
+    ResourceLoader.addFragmentShader("shaders/basic-fs.txt", "basicfrag");
+    ResourceLoader.addVertexShader("shaders/basic-vs.txt", "basicvert");    
 }
 
+// Before we start the looping, do all our setup
+S9WebGL.preLoop = function () {
+    cube = createCube(); 
+
+    // Setup Shader
+    
+    shader = linkShaders("basicvert","basicfrag");
+    
+    gl.useProgram(shader);
+    
+    shader.vertexPositionAttribute = gl.getAttribLocation(shader, "aVertexPosition");
+    gl.enableVertexAttribArray(shader.vertexPositionAttribute);
+
+    shader.vertexColorAttribute = gl.getAttribLocation(shader, "aVertexColor");
+    gl.enableVertexAttribArray(shader.vertexColorAttribute);
+
+    shader.pMatrixUniform = gl.getUniformLocation(shader, "uPMatrix");
+    shader.mvMatrixUniform = gl.getUniformLocation(shader, "uMVMatrix");
+ 
+}
 
 // Update State
 S9WebGL.update = function () {
@@ -55,7 +72,7 @@ S9WebGL.update = function () {
 // Do the actual drawing
 S9WebGL.draw = function () {
     
-    gl.clearColor(0.0, 0.0, 0.0, 1.0);
+    gl.clearColor(0.95, 0.95, 0.95, 1.0);
     gl.clearDepth(1.0);
     
     gl.viewport(0, 0, gl.viewportWidth, gl.viewportHeight);
@@ -64,7 +81,12 @@ S9WebGL.draw = function () {
     perspective(45, gl.viewportWidth / gl.viewportHeight, 0.1, 100.0);
     loadIdentity();
     
+    //mvTranslate([-1.5, 0.0, -7.0]);
+   
+    cube.bindToShader(shader);
+    setMatrixUniforms(shader);
     
+    cube.draw();
     
 }    
    
@@ -73,7 +95,7 @@ S9WebGL.draw = function () {
 
 </head>
 
-<body onload="webGLStart();">
+<body onload="S9WebGL.initialize()">
 
   <canvas id="webgl-canvas" style="border: none;" width="500" height="500"></canvas>
 

@@ -4,7 +4,7 @@
 
 var gl;
 
-var DEBUG = true;
+var DEBUG = false;
 
 // ****************************************************
 // S9 Web GL 'Class' that defines everything
@@ -22,12 +22,17 @@ S9WebGL.prototype = {
 	},
     
     _allIsLoaded : function() {
-        if (DEBUG) alert("All is Loaded");
-        // Setup the tickers!
-        
+        if (DEBUG){
+            var str = "";
+            for (var key in ResourceLoader.resourceByTag){
+                str += key +  ":" + ResourceLoader.resourceByTag[key] + "\n";
+            }
+            alert(str);  
+        }
+        S9WebGL.preLoop();    
         setInterval(S9WebGL.prototype._tick, 15);
-        
     },
+    
 	
 	_tick : function() {
 	    
@@ -54,7 +59,8 @@ S9WebGL.prototype = {
 S9WebGL.lastTime = 0;	
 S9WebGL.elapsed = 0;
 
-S9WebGL.initialize = function(canvas){
+S9WebGL.initialize = function(){
+    var canvas = $('webgl-canvas');	    
 	    
     try {
         gl = canvas.getContext("experimental-webgl");
@@ -72,10 +78,6 @@ S9WebGL.initialize = function(canvas){
 };
 
 
-
-
-
-
 // ****************************************************
 // Resource handling
 // ****************************************************
@@ -85,11 +87,41 @@ S9WebGL.initialize = function(canvas){
 
 var ResourceLoader = {
 
-    resources : new Array() ,
+    resources : new Array,
     nLoaded : 0, 
+    resourceByTag: new Array,
+    
 
-	addResource: function(path){
-	    this.resources.push(path);
+	addVertexShader : function (path, tag) {
+	    ResourceLoader._addResource(path,tag,ResourceLoader._addVertexShader);           
+	},
+	
+	addFragmentShader : function (path, tag) {
+	   ResourceLoader._addResource(path,tag,ResourceLoader._addFragmentShader);
+	},
+    
+    addModel : function (path, tag) {
+	    
+	},
+	
+	addTexture : function (path, tag) {
+	 
+	},
+
+    _addVertexShader : function (response) {
+        if (DEBUG) alert("Compiling Vertex Shader");
+        return compileShader(response,"x-shader/x-vertex");
+    },
+    
+    _addFragmentShader : function (response) {
+        if (DEBUG) alert("Compiling Fragment Shader");
+        return compileShader(response,"x-shader/x-fragment");
+  
+    },
+
+	_addResource: function(path, tag, sfunc){
+	    if (tag == undefined) tag = "r" + this.resources.length;
+	    this.resources.push( [path,tag,sfunc] );
 	    this.nLoaded++; 
     },
     
@@ -97,18 +129,28 @@ var ResourceLoader = {
     
         this.resources.each(function(item) {
     
-            new Ajax.Request(item,
+            new Ajax.Request(item[0],
             {
                 method:'get',
                 onSuccess: function(transport){
-                    var response = transport.responseText || "no response text";
-                    if (DEBUG) alert("Loaded " + item + "\n\n");
-                    ResourceLoader.nLoaded--;
-                    if (ResourceLoader.nLoaded == 0)
-                        S9WebGL.prototype._allIsLoaded();
+                    var response = transport.responseText;
+                    if (response){
+                        if (DEBUG) alert("Loaded " + item[0] + "\n\n");
+                        ResourceLoader.nLoaded--;
                         
+                       
+                        var ro = item[2](response);
+                       
+                        ResourceLoader.resourceByTag[item[1]] = ro;
+                        
+                        if (ResourceLoader.nLoaded == 0)
+                            S9WebGL.prototype._allIsLoaded();
+                    }else{
+                        alert('Data file ' + item[0] + 'was empty!');
+                    
+                    }     
                 },
-                onFailure: function(){ alert('Something went wrong...') }
+                onFailure: function(){ alert('AJAX Request for ' + item[0] + ' failed') }
             });            
         });
     },
@@ -120,36 +162,48 @@ var ResourceLoader = {
 };
 
 
-
+var RLBT = ResourceLoader.resourceByTag;
 
 // ****************************************************
 // Shader Functions for loading and compiling
 // ****************************************************
 
-function loadShader (shader, path, type) {
+function compileShader (data, type) {
 
-    // Probably shouldnt be asynchronous at all!
+    if (type == "x-shader/x-fragment") {
+        var shader = gl.createShader(gl.FRAGMENT_SHADER);
+    } else if (type == "x-shader/x-vertex") {
+        var shader = gl.createShader(gl.VERTEX_SHADER);
+    } 
+    if (shader){
+        gl.shaderSource(shader, data);
+        gl.compileShader(shader);
     
-    var request = new XMLHttpRequest();
-    request.open("GET", path);
-    request.onreadystatechange = function() {
-        if (request.readyState == 4) {
-            if (type == "x-shader/x-fragment") {
-                shader = gl.createShader(gl.FRAGMENT_SHADER);
-            } else if (type == "x-shader/x-vertex") {
-                shader = gl.createShader(gl.VERTEX_SHADER);
-            } 
-
-            gl.shaderSource(shader, request.responseText);
-            gl.compileShader(shader);
-
-            if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
-                alert(gl.getShaderInfoLog(shader));
-            }
+        if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
+            alert(gl.getShaderInfoLog(shader));
+            return;
         }
+        return shader;
     }
-    request.send();
+    else{
+        alert("No Shader Object could be created!");
+    }
+    
+}
 
+
+function linkShaders(rvertextag, rfragtag) {
+
+    var shaderProgram = gl.createProgram();
+    gl.attachShader(shaderProgram, RLBT[rvertextag] );
+    gl.attachShader(shaderProgram, RLBT[rfragtag] );
+    gl.linkProgram(shaderProgram);
+    
+    // Setting the locations!  Can we do this automagically?
+    // potentially, when we read the shader text we could have "special" comments as 
+    // really its just a text to text link?
+    
+    return shaderProgram;
 }
 
 
@@ -241,13 +295,13 @@ function perspective(fovy, aspect, znear, zfar) {
 }
 
 
-function setMatrixUniforms() {
-  /*  gl.uniformMatrix4fv(shaderProgram.pMatrixUniform, false, new Float32Array(pMatrix.flatten()));
+function setMatrixUniforms(shaderProgram) {
+    gl.uniformMatrix4fv(shaderProgram.pMatrixUniform, false, new Float32Array(pMatrix.flatten()));
     gl.uniformMatrix4fv(shaderProgram.mvMatrixUniform, false, new Float32Array(mvMatrix.flatten()));
 
     var normalMatrix = mvMatrix.inverse();
     normalMatrix = normalMatrix.transpose();
-    gl.uniformMatrix4fv(shaderProgram.nMatrixUniform, false, new Float32Array(normalMatrix.flatten()));*/
+    gl.uniformMatrix4fv(shaderProgram.nMatrixUniform, false, new Float32Array(normalMatrix.flatten()));
 }
 
 // ****************************************************
@@ -258,25 +312,23 @@ function Primitive() {
     this.vertexPositionBuffer = gl.createBuffer();
     this.vertexNormalBuffer = gl.createBuffer();
     this.vertexTextureCoordBuffer = gl.createBuffer();
+    this.vertexColorBuffer = gl.createBuffer();
     this.vertexIndexBuffer = gl.createBuffer();
     
+    // I think this needs to be deleted and we simply have an override
+    
     this.bindToShader = function (shaderProgram) {
-          gl.bindBuffer(gl.ARRAY_BUFFER, this.vertexPositionBuffer);
-          gl.vertexAttribPointer(shaderProgram.vertexPositionAttribute, this.vertexPositionBuffer.itemSize, gl.FLOAT, false, 0, 0);
+        gl.bindBuffer(gl.ARRAY_BUFFER, this.vertexPositionBuffer);
+        gl.vertexAttribPointer(shaderProgram.vertexPositionAttribute, this.vertexPositionBuffer.itemSize, gl.FLOAT, false, 0, 0);
     
-          gl.bindBuffer(gl.ARRAY_BUFFER, this.vertexTextureCoordBuffer);
-          gl.vertexAttribPointer(shaderProgram.textureCoordAttribute, this.vertexTextureCoordBuffer.itemSize, gl.FLOAT, false, 0, 0);
-    
-          gl.bindBuffer(gl.ARRAY_BUFFER, this.vertexNormalBuffer);
-          gl.vertexAttribPointer(shaderProgram.vertexNormalAttribute, this.vertexNormalBuffer.itemSize, gl.FLOAT, false, 0, 0);
-    
-          gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, this.vertexIndexBuffer);
-          setMatrixUniforms();
-          gl.drawElements(gl.TRIANGLES, this.vertexIndexBuffer.numItems, gl.UNSIGNED_SHORT, 0);
+        gl.bindBuffer(gl.ARRAY_BUFFER, this.vertexColorBuffer);
+        gl.vertexAttribPointer(shaderProgram.vertexColorAttribute, this.vertexColorBuffer.itemSize, gl.FLOAT, false, 0, 0);
     }
     
     this.draw = function () {
-        gl.drawArrays(gl.TRIANGLE_STRIP, 0, this.vertexPositionBuffer.numItems);
+        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, this.vertexIndexBuffer);
+        gl.drawElements(gl.TRIANGLE_STRIP, this.vertexIndexBuffer.numItems, gl.UNSIGNED_SHORT, 0);
+ 
     }
 }
 
@@ -426,6 +478,28 @@ function createCube() {
     gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(cube.vertexIndices), gl.STATIC_DRAW);
     cube.vertexIndexBuffer.itemSize = 1;
     cube.vertexIndexBuffer.numItems = 36;
+    
+    
+    gl.bindBuffer(gl.ARRAY_BUFFER, cube.vertexColorBuffer);
+    var colors = [
+      [1.0, 0.0, 0.0, 1.0],     // Front face
+      [1.0, 1.0, 0.0, 1.0],     // Back face
+      [0.0, 1.0, 0.0, 1.0],     // Top face
+      [1.0, 0.5, 0.5, 1.0],     // Bottom face
+      [1.0, 0.0, 1.0, 1.0],     // Right face
+      [0.0, 0.0, 1.0, 1.0],     // Left face
+    ];
+    var unpackedColors = []
+    for (var i in colors) {
+      var color = colors[i];
+      for (var j=0; j < 4; j++) {
+        unpackedColors = unpackedColors.concat(color);
+      }
+    }
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(unpackedColors), gl.STATIC_DRAW);
+    cube.vertexColorBuffer.itemSize = 4;
+    cube.vertexColorBuffer.numItems = 24;
+
     
     return cube;
 }
