@@ -27,37 +27,61 @@ TODO
 <script type="text/javascript" src="js/prototype.js"></script>
 <script type="text/javascript" src="js/sylvester.js"></script>
 <script type="text/javascript" src="js/glUtils.js"></script>
+<script type="text/javascript" src="js/webgl-debug.js"></script>
 <script type="text/javascript" src="js/s9WebGL.js"></script>
 
 
-<!-- Main Java Script GL Functions -->
+<!-- Main Java Script GL Functions 
 
+- $S is the main Section9 WebGL Class instance that has master control
+
+- $RL is the resource loader instance that controls all resources like
+models, textures and shaders
+
+- $R is shorthand for $RL.resourceByTag and allows nice access to each
+resource via their user assigned name
+
+There are 4 functons to override:
+    - setupResources - loading anything external here
+    - preLoop - Do all your initialization here
+    - draw - make your drawing calls here
+    - update - Update the state of your program here
+
+-->
 <script type="text/javascript">
 
 var cube;
 var shader;
+var cubeRotate;
 
 // Load our resources
-S9WebGL.setupResources = function () {
-    ResourceLoader.addFragmentShader("shaders/basic-fs.txt", "basicfrag");
-    ResourceLoader.addVertexShader("shaders/basic-vs.txt", "basicvert");    
+$S.setupResources = function () {
+    $RL.addFragmentShader("shaders/basic-fs.txt", "basicfrag");
+    $RL.addVertexShader("shaders/basic-vs.txt", "basicvert");
+    
+    $RL.addTexture("textures/crate.gif","crate");
 }
 
 // Before we start the looping, do all our setup
-S9WebGL.preLoop = function () {
-    cube = createCube(); 
+$S.preLoop = function () {
+   
+    cube = createCube();
+    cubeRotate = 0;
 
-    // Setup Shader
+    // create Shader
+    shader = createShaders("basicvert","basicfrag", "basic");
     
-    shader = linkShaders("basicvert","basicfrag");
-    
-    gl.useProgram(shader);
-    
+    // link variables and shader variables 
+    $S.setActiveShader("basic");
+   
     shader.vertexPositionAttribute = gl.getAttribLocation(shader, "aVertexPosition");
     gl.enableVertexAttribArray(shader.vertexPositionAttribute);
 
     shader.vertexColorAttribute = gl.getAttribLocation(shader, "aVertexColor");
     gl.enableVertexAttribArray(shader.vertexColorAttribute);
+    
+    shader.textureCoordAttribute = gl.getAttribLocation(shader, "aTextureCoord");
+    gl.enableVertexAttribArray(shader.textureCoordAttribute);
 
     shader.pMatrixUniform = gl.getUniformLocation(shader, "uPMatrix");
     shader.mvMatrixUniform = gl.getUniformLocation(shader, "uMVMatrix");
@@ -65,12 +89,12 @@ S9WebGL.preLoop = function () {
 }
 
 // Update State
-S9WebGL.update = function () {
-    
+$S.update = function () {
+    cubeRotate +=1;
 } 
 
 // Do the actual drawing
-S9WebGL.draw = function () {
+$S.draw = function () {
     
     gl.clearColor(0.95, 0.95, 0.95, 1.0);
     gl.clearDepth(1.0);
@@ -78,16 +102,15 @@ S9WebGL.draw = function () {
     gl.viewport(0, 0, gl.viewportWidth, gl.viewportHeight);
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
-    perspective(45, gl.viewportWidth / gl.viewportHeight, 0.1, 100.0);
+    perspective(50, gl.viewportWidth / gl.viewportHeight, 0.1, 100.0);
     loadIdentity();
     
-    //mvTranslate([-1.5, 0.0, -7.0]);
-   
-    cube.bindToShader(shader);
-    setMatrixUniforms(shader);
+    mvTranslate([0.0, 0.0, -7.0]);
+    mvRotate(cubeRotate,[0.0,1.0,0.0]);  
     
-    cube.draw();
+    gl.bindTexture(gl.TEXTURE_2D, $R["crate"]);
     
+    cube.draw(shader);
 }    
    
 </script>

@@ -59,17 +59,34 @@ S9WebGL.prototype = {
 S9WebGL.lastTime = 0;	
 S9WebGL.elapsed = 0;
 
+function throwOnGLError(err, funcName, args) {
+  throw WebGLDebugUtils.glEnumToString(err) + " was caused by call to" + funcName;
+};
+
+
 S9WebGL.initialize = function(){
-    var canvas = $('webgl-canvas');	    
+    this.canvas = $('webgl-canvas');	    
 	    
     try {
-        gl = canvas.getContext("experimental-webgl");
-        gl.viewportWidth = canvas.width;
-        gl.viewportHeight = canvas.height;
+        if (DEBUG) WebGLDebugUtils.makeDebugContext(this.canvas.getContext("experimental-webgl"));
+        else gl = this.canvas.getContext("experimental-webgl");
+        
+        gl.viewportWidth = this.canvas.width;
+        gl.viewportHeight = this.canvas.height;
       
+        // Place holder for shaders
+        this.shaders = new Array;
+        this.activeShader = "none";
+
+       // OpenGL Constants        
+        gl.clearDepth(1.0);
+        gl.enable(gl.DEPTH_TEST);
+        gl.depthFunc(gl.LEQUAL);
+        gl.enable(gl.TEXTURE_2D);
+
         this.prototype._setupResources();
     } catch(e) {
-    
+        alert(e);
     }
     
     if (!gl) {
@@ -77,6 +94,14 @@ S9WebGL.initialize = function(){
     }
 };
 
+S9WebGL.setActiveShader = function(tag) {
+     var shader = S9WebGL.shaders[tag];
+     S9WebGL.activeShader = tag;
+     gl.useProgram(shader);
+};
+
+
+var $S = S9WebGL;
 
 // ****************************************************
 // Resource handling
@@ -105,8 +130,25 @@ var ResourceLoader = {
 	},
 	
 	addTexture : function (path, tag) {
-	 
-	},
+	    var texImage = new Image();
+
+        var texture = gl.createTexture();
+        texture.image = texImage;
+        texImage.src = path;
+        
+        texImage.onload = function() {
+            gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
+            gl.bindTexture(gl.TEXTURE_2D,texture);
+            gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, texture.image);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+            gl.bindTexture(gl.TEXTURE_2D, null);
+            
+            if (tag == undefined) tag = "r" + this.resources.length;
+	        ResourceLoader.resources.push( [texture,tag] );
+	        ResourceLoader.resourceByTag[tag] = texture;
+        }
+    },
 
     _addVertexShader : function (response) {
         if (DEBUG) alert("Compiling Vertex Shader");
@@ -118,7 +160,8 @@ var ResourceLoader = {
         return compileShader(response,"x-shader/x-fragment");
   
     },
-
+    
+    
 	_addResource: function(path, tag, sfunc){
 	    if (tag == undefined) tag = "r" + this.resources.length;
 	    this.resources.push( [path,tag,sfunc] );
@@ -161,8 +204,9 @@ var ResourceLoader = {
        
 };
 
-
-var RLBT = ResourceLoader.resourceByTag;
+// Actual 'singleton' for handling things - maybe use a $R ?
+var $R = ResourceLoader.resourceByTag;
+var $RL = ResourceLoader;
 
 // ****************************************************
 // Shader Functions for loading and compiling
@@ -192,16 +236,21 @@ function compileShader (data, type) {
 }
 
 
-function linkShaders(rvertextag, rfragtag) {
+function createShaders(rvertextag, rfragtag, tag) {
 
     var shaderProgram = gl.createProgram();
-    gl.attachShader(shaderProgram, RLBT[rvertextag] );
-    gl.attachShader(shaderProgram, RLBT[rfragtag] );
+    gl.attachShader(shaderProgram, $R[rvertextag] );
+    gl.attachShader(shaderProgram, $R[rfragtag] );
     gl.linkProgram(shaderProgram);
     
     // Setting the locations!  Can we do this automagically?
     // potentially, when we read the shader text we could have "special" comments as 
     // really its just a text to text link?
+    
+    // add Shader to our internal tracker
+    if (tag == undefined) tag = "s" +  S9WebGL.shaders.length;
+    S9WebGL.shaders[tag] =  shaderProgram;
+    S9WebGL.activeShader = tag;
     
     return shaderProgram;
 }
@@ -294,14 +343,19 @@ function perspective(fovy, aspect, znear, zfar) {
     pMatrix = makePerspective(fovy, aspect, znear, zfar);
 }
 
-
-function setMatrixUniforms(shaderProgram) {
-    gl.uniformMatrix4fv(shaderProgram.pMatrixUniform, false, new Float32Array(pMatrix.flatten()));
-    gl.uniformMatrix4fv(shaderProgram.mvMatrixUniform, false, new Float32Array(mvMatrix.flatten()));
-
-    var normalMatrix = mvMatrix.inverse();
-    normalMatrix = normalMatrix.transpose();
-    gl.uniformMatrix4fv(shaderProgram.nMatrixUniform, false, new Float32Array(normalMatrix.flatten()));
+// This function takes our OpenGL / Sylvester Matrices and creates something nice a shader can use
+function setMatrixUniforms() {
+    // Grab the Active Shader
+    var shaderProgram = S9WebGL.shaders[S9WebGL.activeShader];
+    
+    if (shaderProgram != "none"){
+        gl.uniformMatrix4fv(shaderProgram.pMatrixUniform, false, new Float32Array(pMatrix.flatten()));
+        gl.uniformMatrix4fv(shaderProgram.mvMatrixUniform, false, new Float32Array(mvMatrix.flatten()));
+    
+        var normalMatrix = mvMatrix.inverse();
+        normalMatrix = normalMatrix.transpose();
+        gl.uniformMatrix4fv(shaderProgram.nMatrixUniform, false, new Float32Array(normalMatrix.flatten()));
+    }
 }
 
 // ****************************************************
@@ -315,20 +369,25 @@ function Primitive() {
     this.vertexColorBuffer = gl.createBuffer();
     this.vertexIndexBuffer = gl.createBuffer();
     
-    // I think this needs to be deleted and we simply have an override
-    
-    this.bindToShader = function (shaderProgram) {
-        gl.bindBuffer(gl.ARRAY_BUFFER, this.vertexPositionBuffer);
-        gl.vertexAttribPointer(shaderProgram.vertexPositionAttribute, this.vertexPositionBuffer.itemSize, gl.FLOAT, false, 0, 0);
-    
-        gl.bindBuffer(gl.ARRAY_BUFFER, this.vertexColorBuffer);
-        gl.vertexAttribPointer(shaderProgram.vertexColorAttribute, this.vertexColorBuffer.itemSize, gl.FLOAT, false, 0, 0);
-    }
-    
     this.draw = function () {
-        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, this.vertexIndexBuffer);
-        gl.drawElements(gl.TRIANGLE_STRIP, this.vertexIndexBuffer.numItems, gl.UNSIGNED_SHORT, 0);
- 
+    
+        var shaderProgram = S9WebGL.shaders[S9WebGL.activeShader];
+    
+        if (shaderProgram != "none"){
+    
+            gl.bindBuffer(gl.ARRAY_BUFFER, this.vertexTextureCoordBuffer);
+            gl.vertexAttribPointer(shaderProgram.textureCoordAttribute, this.vertexTextureCoordBuffer.itemSize, gl.FLOAT, false, 0, 0);
+    
+            gl.bindBuffer(gl.ARRAY_BUFFER, this.vertexPositionBuffer);
+            gl.vertexAttribPointer(shaderProgram.vertexPositionAttribute, this.vertexPositionBuffer.itemSize, gl.FLOAT, false, 0, 0);
+        
+            gl.bindBuffer(gl.ARRAY_BUFFER, this.vertexColorBuffer);
+            gl.vertexAttribPointer(shaderProgram.vertexColorAttribute, this.vertexColorBuffer.itemSize, gl.FLOAT, false, 0, 0);
+        
+            gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, this.vertexIndexBuffer);
+            setMatrixUniforms(shaderProgram);
+            gl.drawElements(gl.TRIANGLES, this.vertexIndexBuffer.numItems, gl.UNSIGNED_SHORT, 0);
+        }
     }
 }
 
@@ -475,7 +534,7 @@ function createCube() {
       16, 17, 18,   16, 18, 19, // Right face
       20, 21, 22,   20, 22, 23  // Left face
     ]
-    gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(cube.vertexIndices), gl.STATIC_DRAW);
+    gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(cubeVertexIndices), gl.STATIC_DRAW);
     cube.vertexIndexBuffer.itemSize = 1;
     cube.vertexIndexBuffer.numItems = 36;
     
