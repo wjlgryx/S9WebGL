@@ -1,0 +1,37 @@
+  ________________________________________.___________    _______  ________ 
+ /   _____/\_   _____/\_   ___ \__    ___/|   \_____  \   \      \/   __   \
+ \_____  \  |    __)_ /    \  \/ |    |   |   |/   |   \  /   |   \____    /
+ /        \ |        \\     \____|    |   |   /    |    \/    |    \ /    / 
+/_______  //_______  / \______  /|____|   |___\_______  /\____|__  //____/  
+        \/         \/         \/                      \/         \/       .co.uk
+
+
+WebGL Template v.1
+
+Benjamin Blundell
+
+oni @ section9.co.uk
+
+http://www.section9.co.uk
+http://www.casa.ucl.ac.uk
+
+Based on the excellent work by Giles over at http://learningwebgl.com/
+
+This software is released under Creative Commons Attribution Non-Commercial Share Alike
+http://creativecommons.org/licenses/by-nc-sa/3.0/
+
+
+***
+
+The idea of this was to play around with the LearningGL examples from the excellent site:  
+http://learningwebgl.com. I figured it needed to be collected, expanded and turned into something
+a little more similar to processing or openframeworks but with a twist. The idea is to create a 
+simple framework in JS that allows easy visualisations within the browser.
+
+This template makes use of the 960.css and JQuery/UI. The former is just for layout but the
+internal scripts make heavy use of JQuery.
+
+There are 4 functions you need to play with in the index.html file. These are preloop, update,
+draw and loadresources and are fairly self explanatory.
+
+Comments are always welcome and I'd love to get feedback.

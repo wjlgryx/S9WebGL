@@ -1,18 +1,28 @@
 <!-- 
 
-WebGL Template
+  ________________________________________.___________    _______  ________ 
+ /   _____/\_   _____/\_   ___ \__    ___/|   \_____  \   \      \/   __   \
+ \_____  \  |    __)_ /    \  \/ |    |   |   |/   |   \  /   |   \____    /
+ /        \ |        \\     \____|    |   |   /    |    \/    |    \ /    / 
+/_______  //_______  / \______  /|____|   |___\_______  /\____|__  //____/  
+        \/         \/         \/                      \/         \/       .co.uk
+
+
+WebGL Template  v.1
+
+index.html
 
 Benjamin Blundell
 
 oni @ section9.co.uk
 
+http://www.section9.co.uk
+http://www.casa.ucl.ac.uk
+
 Based on the excellent work by Giles over at http://learningwebgl.com/
 
-TODO
-
-* Make textures a class so we can load them easily
-
-
+This software is released under Creative Commons Attribution Non-Commercial Share Alike
+http://creativecommons.org/licenses/by-nc-sa/3.0/
 
  -->
 
@@ -22,9 +32,14 @@ TODO
 <title>Basic WebGL Template</title>
 <meta http-equiv="content-type" content="text/html; charset=ISO-8859-1">
 
+<link type="text/css" href="css/black-tie/jquery-ui-1.8.5.custom.css" rel="stylesheet" />
+<link rel="stylesheet" href="css/960.css" />
+<link rel="stylesheet" href="css/S9WebGL.css" />
+
 <!-- JS For Additional OpenGL Functions -->
 
-<script type="text/javascript" src="js/prototype.js"></script>
+<script type="text/javascript" src="js/jquery-1.4.2.min.js"></script>
+<script type="text/javascript" src="js/jquery-ui-1.8.5.custom.min.js"></script>
 <script type="text/javascript" src="js/sylvester.js"></script>
 <script type="text/javascript" src="js/glUtils.js"></script>
 <script type="text/javascript" src="js/webgl-debug.js"></script>
@@ -50,23 +65,69 @@ There are 4 functons to override:
 -->
 <script type="text/javascript">
 
-var cube;
-var shader;
-var cubeRotate;
+// Globals you want to mess with
 
-// Load our resources
+var sphere;
+var shader;
+var rotateX = 0;
+var rotateY = 0;
+var zoom = 1;
+
+
+// ****************************************************
+// Setup controls - JQuery related - Not S9WebGL per-se
+// ****************************************************
+
+$(function(){
+    $('#sliderX').slider({
+        range: false,
+        orientation: "vertical",
+        values: [50],
+        slide: function(event, ui) { 
+            rotateX = 360 / 100 * ui.value - 180;       
+        }
+    });
+    
+    $('#sliderY').slider({
+        range: false,
+        values: [50],
+        slide: function(event, ui) { 
+            rotateY = 360 / 100 * ui.value - 180;      
+        }
+    });
+    
+    $('#sliderZoom').slider({
+        range: false,
+        orientation: "vertical",
+        values: [0],
+        slide: function(event, ui) { 
+            zoom = 5 / 100 *  ui.value + 1;   
+        }
+    });
+    
+    
+});
+
+
+// ****************************************************
+// S9 GL Load resources
+// ****************************************************
+
 $S.setupResources = function () {
     $RL.addFragmentShader("shaders/basic-fs.txt", "basicfrag");
     $RL.addVertexShader("shaders/basic-vs.txt", "basicvert");
     
-    $RL.addTexture("textures/crate.gif","crate");
+    $RL.addTexture("textures/world.png","world");
 }
 
-// Before we start the looping, do all our setup
+// ****************************************************
+// S9 GL Init Variables and Environment
+// ****************************************************
+
 $S.preLoop = function () {
    
-    cube = createCube();
-    cubeRotate = 0;
+      
+    sphere = createSphere(50,50);
 
     // create Shader
     shader = createShaders("basicvert","basicfrag", "basic");
@@ -88,12 +149,21 @@ $S.preLoop = function () {
  
 }
 
-// Update State
+// ****************************************************
+// S9 GL Update GL
+// ****************************************************
+
 $S.update = function () {
-    cubeRotate +=1;
+    if ($S.mouseDown){
+        rotateX += ($S.mouseY - $S.mouseYprev) * 180;
+        rotateY += ($S.mouseX - $S.mouseXprev) * 180;
+    } 
 } 
 
-// Do the actual drawing
+// ****************************************************
+// S9 GL Drawing
+// ****************************************************
+
 $S.draw = function () {
     
     gl.clearColor(0.95, 0.95, 0.95, 1.0);
@@ -105,24 +175,59 @@ $S.draw = function () {
     perspective(50, gl.viewportWidth / gl.viewportHeight, 0.1, 100.0);
     loadIdentity();
     
-    mvTranslate([0.0, 0.0, -7.0]);
-    mvRotate(cubeRotate,[0.0,1.0,0.0]);  
-    
-    gl.bindTexture(gl.TEXTURE_2D, $R["crate"]);
-    
-    cube.draw(shader);
-}    
+    mvTranslate([0.0, 0.0, -10.0]);
    
+    mvScale([zoom,zoom,zoom]);
+    
+    mvRotate(rotateX,[1.0,0.0,0.0]); 
+    mvRotate(rotateY,[0.0,1.0,0.0]);  
+    
+    gl.bindTexture(gl.TEXTURE_2D, $R["world"]);
+    
+    sphere.draw();
+}    
+ 
 </script>
 
 
 </head>
 
 <body onload="S9WebGL.initialize()">
-
-  <canvas id="webgl-canvas" style="border: none;" width="500" height="500"></canvas>
-
-  <p><a href="http://learningwebgl.com/blog/?p=1786">learningwebgl</a><br /></p>
+    <div class="container_16" id="mainLayout">
+        <div class="grid_3">&nbsp;</div>
+        <div class="grid_10">
+            <canvas id="webgl-canvas" style="border: none;" width="580" height="580"></canvas>
+        </div>
+        <div class="grid_1">
+     
+            <!-- Add some interaction sliders for moving things around -->
+          <div id="sliderX" class="ui-slider ui-slider-vertical ui-widget ui-widget-content ui-corner-all" 
+          style=" height:480px;">
+            <div class="ui-slider-range ui-widget-header" ></div>
+            <a href="#" class="ui-slider-handle ui-state-default ui-corner-all" ></a>
+           
+           </div>
+           
+           <div id="sliderZoom" class="ui-slider ui-slider-vertical ui-widget ui-widget-content ui-corner-all" 
+          style=" height:70px; margin-top:20px;">
+            <div class="ui-slider-range ui-widget-header" ></div>
+            <a href="#" class="ui-slider-handle ui-state-default ui-corner-all" ></a>
+           
+           </div>
+           
+           
+        </div>
+        <div class="clear"></div>
+        <div class="grid_3">&nbsp;</div>
+        <div class="grid_10">
+           <div id="sliderY" class="ui-slider ui-slider-horizontal ui-widget ui-widget-content ui-corner-all"
+           style="width:480px; margin-top: 20px;">
+            <div class="ui-slider-range ui-widget-header" ></div>
+            <a href="#" class="ui-slider-handle ui-state-default ui-corner-all" ></a>
+           
+           </div>
+        </div>
+    </div>
 </body>
 
 </html>

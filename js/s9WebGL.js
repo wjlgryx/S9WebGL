@@ -1,3 +1,31 @@
+/*
+
+  ________________________________________.___________    _______  ________ 
+ /   _____/\_   _____/\_   ___ \__    ___/|   \_____  \   \      \/   __   \
+ \_____  \  |    __)_ /    \  \/ |    |   |   |/   |   \  /   |   \____    /
+ /        \ |        \\     \____|    |   |   /    |    \/    |    \ /    / 
+/_______  //_______  / \______  /|____|   |___\_______  /\____|__  //____/  
+        \/         \/         \/                      \/         \/       .co.uk
+
+
+WebGL Template  v.1
+
+s9WebGL.js
+
+Benjamin Blundell
+
+oni @ section9.co.uk
+
+http://www.section9.co.uk
+http://www.casa.ucl.ac.uk
+
+Based on the excellent work by Giles over at http://learningwebgl.com/
+
+This software is released under Creative Commons Attribution Non-Commercial Share Alike
+http://creativecommons.org/licenses/by-nc-sa/3.0/
+
+*/
+
 // ****************************************************
 // Globals
 // ****************************************************
@@ -10,7 +38,7 @@ var DEBUG = false;
 // S9 Web GL 'Class' that defines everything
 // ****************************************************
 
-var S9WebGL = Class.create();
+var S9WebGL = new Object();
 
 // Possibly don't need to prototype but I'll leave it for now
 
@@ -47,7 +75,11 @@ S9WebGL.prototype = {
 	},
 	
 	_update : function () {
-	    S9WebGL.update();   
+	    S9WebGL.update();
+	    
+	    // Technical these mouse elements may not exist yet
+	    S9WebGL.mouseXprev = S9WebGL.mouseX;
+        S9WebGL.mouseYprev = S9WebGL.mouseY; 
 	},
 	
 	_draw : function() {
@@ -65,10 +97,10 @@ function throwOnGLError(err, funcName, args) {
 
 
 S9WebGL.initialize = function(){
-    this.canvas = $('webgl-canvas');	    
+    this.canvas = $("#webgl-canvas")[0];	    
 	    
     try {
-        if (DEBUG) WebGLDebugUtils.makeDebugContext(this.canvas.getContext("experimental-webgl"));
+        if (DEBUG) gl = WebGLDebugUtils.makeDebugContext(this.canvas.getContext("experimental-webgl"));
         else gl = this.canvas.getContext("experimental-webgl");
         
         gl.viewportWidth = this.canvas.width;
@@ -77,6 +109,9 @@ S9WebGL.initialize = function(){
         // Place holder for shaders
         this.shaders = new Array;
         this.activeShader = "none";
+
+        // Add the mouse handler
+        setMouseHandler();
 
        // OpenGL Constants        
         gl.clearDepth(1.0);
@@ -170,19 +205,18 @@ var ResourceLoader = {
     
     _load : function () {
     
-        this.resources.each(function(item) {
-    
-            new Ajax.Request(item[0],
-            {
-                method:'get',
-                onSuccess: function(transport){
-                    var response = transport.responseText;
-                    if (response){
+        $.each(ResourceLoader.resources,function(index,item) {
+          
+            // JQUERY HAS NO FAILURE method in its Ajax Class.... fail!
+            $.ajax({
+                url: item[0],
+                success: function(data){
+                 
+                    if (data){
                         if (DEBUG) alert("Loaded " + item[0] + "\n\n");
                         ResourceLoader.nLoaded--;
-                        
-                       
-                        var ro = item[2](response);
+
+                        var ro = item[2](data);
                        
                         ResourceLoader.resourceByTag[item[1]] = ro;
                         
@@ -190,12 +224,15 @@ var ResourceLoader = {
                             S9WebGL.prototype._allIsLoaded();
                     }else{
                         alert('Data file ' + item[0] + 'was empty!');
-                    
+         
                     }     
                 },
-                onFailure: function(){ alert('AJAX Request for ' + item[0] + ' failed') }
-            });            
+                
+                 
+            
+            });
         });
+
     },
     
     isReady : function() {
@@ -257,36 +294,6 @@ function createShaders(rvertextag, rfragtag, tag) {
 
 
 // ****************************************************
-// Handle Textures
-// ****************************************************
-
-
-function handleLoadedTexture(texture) {
-    gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
-    gl.bindTexture(gl.TEXTURE_2D, texture);
-    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, texture.image);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_NEAREST);
-    gl.generateMipmap(gl.TEXTURE_2D);
-
-    gl.bindTexture(gl.TEXTURE_2D, null);
-}
-
-
-// Load a texture from a file
-
-function loadTexture(path) {
-    var texture;
-    texture = gl.createTexture();
-    texture.image = new Image();
-    texture.image.onload = function() {
-        handleLoadedTexture(texture)
-    }
-    texture.image.src = path;
-    return texture;
-}
-
-// ****************************************************
 // Matrix Stacking and Settings Functions
 // ****************************************************
 
@@ -328,6 +335,15 @@ function mvTranslate(v) {
     multMatrix(m);
 }
 
+function createScaleMatrix(v) {
+    return Matrix.Diagonal([v[0], v[1], v[2] , 1]);
+}
+
+function mvScale(v) {
+    var m = createScaleMatrix(v).ensure4x4();
+    multMatrix(m);    
+}
+
 
 function createRotationMatrix(angle, v) {
     var arad = angle * Math.PI / 180.0;
@@ -358,16 +374,66 @@ function setMatrixUniforms() {
     }
 }
 
+
+// ****************************************************
+// Mouse and Keyboard interaction functions
+// ****************************************************
+
+// This function returns values between -1 and 1 with the origin
+// at the center of the canvas
+
+
+function setMouseHandler() {
+    S9WebGL.mouseX = 0;
+    S9WebGL.mouseY = 0;
+    
+    S9WebGL.mouseXprev = 0;
+    S9WebGL.mouseYprev = 0;
+    
+    S9WebGL.mouseXstart = 0;
+    S9WebGL.mouseYstart = 0;
+    
+    S9WebGL.mouseDown = false;
+
+    $(S9WebGL.canvas).mousemove(function(event) {
+        var vc = $(S9WebGL.canvas).position();
+        S9WebGL.mouseX =   event.pageX - vc.left;
+        S9WebGL.mouseY =   event.pageY - vc.top;
+        
+        S9WebGL.mouseX = S9WebGL.mouseX - (S9WebGL.canvas.width / 2); 
+        S9WebGL.mouseY = S9WebGL.mouseY - (S9WebGL.canvas.height / 2); 
+    
+        S9WebGL.mouseX  /=   (S9WebGL.canvas.width / 2);
+        S9WebGL.mouseY  /=   (S9WebGL.canvas.height / 2);    
+   
+    });
+    
+    $(S9WebGL.canvas).mousedown ( function () {
+        S9WebGL.mouseDown = true;
+        S9WebGL.mouseXstart = S9WebGL.mouseX;
+        S9WebGL.mouseYstart = S9WebGL.mouseY;         
+    });
+    
+    $(S9WebGL.canvas).mouseup ( function () {
+        S9WebGL.mouseDown = false;         
+    });   
+   
+}
+
+
 // ****************************************************
 // Primitive Models (cubes and spheres and such like)
 // ****************************************************
 
 function Primitive() {
-    this.vertexPositionBuffer = gl.createBuffer();
-    this.vertexNormalBuffer = gl.createBuffer();
-    this.vertexTextureCoordBuffer = gl.createBuffer();
-    this.vertexColorBuffer = gl.createBuffer();
-    this.vertexIndexBuffer = gl.createBuffer();
+
+    // Create a stack of buffers - we may not use them all
+
+    this.vertexPositionBuffer       = gl.createBuffer();
+    this.vertexNormalBuffer         = gl.createBuffer();
+    this.vertexTextureCoordBuffer   = gl.createBuffer();
+    this.vertexColorBuffer          = gl.createBuffer();
+    this.vertexIndexBuffer          = gl.createBuffer();
     
     this.draw = function () {
     
@@ -559,12 +625,15 @@ function createCube() {
     cube.vertexColorBuffer.itemSize = 4;
     cube.vertexColorBuffer.numItems = 24;
 
-    
     return cube;
 }
 
 
 function createSphere(latitudeBands,longitudeBands) {
+    
+    if (latitudeBands == undefined)     latitudeBands = 5;
+    if (longitudeBands == undefined)  longitudeBands = 5;
+    
     var radius = 1;
     
     var sphere = new Primitive;
@@ -572,6 +641,8 @@ function createSphere(latitudeBands,longitudeBands) {
     var vertexPositionData = [];
     var normalData = [];
     var textureCoordData = [];
+    var colorData = [];
+    
     for (var latNumber = 0; latNumber <= latitudeBands; latNumber++) {
       var theta = latNumber * Math.PI / latitudeBands;
       var sinTheta = Math.sin(theta);
@@ -591,6 +662,12 @@ function createSphere(latitudeBands,longitudeBands) {
         normalData.push(x);
         normalData.push(y);
         normalData.push(z);
+        
+        colorData.push(1.0);
+        colorData.push(1.0);
+        colorData.push(1.0);
+        colorData.push(1.0);
+        
         textureCoordData.push(u);
         textureCoordData.push(v);
         vertexPositionData.push(radius * x);
@@ -613,30 +690,35 @@ function createSphere(latitudeBands,longitudeBands) {
         indexData.push(first + 1);
       }
     }
-
-    sphere.vertexNormalBuffer = gl.createBuffer();
+ 
     gl.bindBuffer(gl.ARRAY_BUFFER, sphere.vertexNormalBuffer);
     gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(normalData), gl.STATIC_DRAW);
     sphere.vertexNormalBuffer.itemSize = 3;
     sphere.vertexNormalBuffer.numItems = normalData.length / 3;
 
-    sphere.vertexTextureCoordBuffer = gl.createBuffer();
-    gl.bindBuffer(gl.ARRAY_BUFFER, moonVertexTextureCoordBuffer);
+    gl.bindBuffer(gl.ARRAY_BUFFER, sphere.vertexTextureCoordBuffer);
     gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(textureCoordData), gl.STATIC_DRAW);
     sphere.vertexTextureCoordBuffer.itemSize = 2;
     sphere.vertexTextureCoordBuffer.numItems = textureCoordData.length / 2;
-
-    sphere.vertexPositionBuffer = gl.createBuffer();
+ 
     gl.bindBuffer(gl.ARRAY_BUFFER, sphere.vertexPositionBuffer);
     gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertexPositionData), gl.STATIC_DRAW);
     sphere.vertexPositionBuffer.itemSize = 3;
     sphere.vertexPositionBuffer.numItems = vertexPositionData.length / 3;
 
-    sphere.vertexIndexBuffer = gl.createBuffer();
     gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, sphere.vertexIndexBuffer);
     gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(indexData), gl.STREAM_DRAW);
     sphere.vertexIndexBuffer.itemSize = 1;
     sphere.vertexIndexBuffer.numItems = indexData.length;
+    
+    
+    gl.bindBuffer(gl.ARRAY_BUFFER, sphere.vertexColorBuffer);
+   
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(colorData), gl.STATIC_DRAW);
+    sphere.vertexColorBuffer.itemSize = 4;
+    sphere.vertexColorBuffer.numItems = colorData.length;
+
+    return sphere;
 
 }
 
