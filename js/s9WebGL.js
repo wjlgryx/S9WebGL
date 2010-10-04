@@ -117,8 +117,7 @@ S9WebGL.initialize = function(){
         gl.clearDepth(1.0);
         gl.enable(gl.DEPTH_TEST);
         gl.depthFunc(gl.LEQUAL);
-        gl.enable(gl.TEXTURE_2D);
-
+       
         this.prototype._setupResources();
     } catch(e) {
         alert(e);
@@ -171,13 +170,17 @@ var ResourceLoader = {
         texture.image = texImage;
         texImage.src = path;
         
+        // SHOULD CHECK FOR RGB / RGBA here!
+        
         texImage.onload = function() {
             gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
             gl.bindTexture(gl.TEXTURE_2D,texture);
             gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, texture.image);
-            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
-            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_NEAREST);
+            gl.generateMipmap(gl.TEXTURE_2D);
             gl.bindTexture(gl.TEXTURE_2D, null);
+         
             
             if (tag == undefined) tag = "r" + this.resources.length;
 	        ResourceLoader.resources.push( [texture,tag] );
@@ -371,6 +374,13 @@ function setMatrixUniforms() {
         var normalMatrix = mvMatrix.inverse();
         normalMatrix = normalMatrix.transpose();
         gl.uniformMatrix4fv(shaderProgram.nMatrixUniform, false, new Float32Array(normalMatrix.flatten()));
+        
+        
+        if (shaderProgram.nMatrixUniform != undefined){
+            var normalMatrix = mvMatrix.inverse();
+            normalMatrix = normalMatrix.transpose();
+            gl.uniformMatrix4fv(shaderProgram.nMatrixUniform, false, new Float32Array(normalMatrix.flatten()));
+        }
     }
 }
 
@@ -446,10 +456,17 @@ function Primitive() {
     
             gl.bindBuffer(gl.ARRAY_BUFFER, this.vertexPositionBuffer);
             gl.vertexAttribPointer(shaderProgram.vertexPositionAttribute, this.vertexPositionBuffer.itemSize, gl.FLOAT, false, 0, 0);
+      
+            if (shaderProgram.vertexNormalAttribute != undefined) {
+                gl.bindBuffer(gl.ARRAY_BUFFER, this.vertexNormalBuffer);
+                gl.vertexAttribPointer(shaderProgram.vertexNormalAttribute, this.vertexNormalBuffer.itemSize, gl.FLOAT, false, 0, 0);
+            }
         
-            gl.bindBuffer(gl.ARRAY_BUFFER, this.vertexColorBuffer);
-            gl.vertexAttribPointer(shaderProgram.vertexColorAttribute, this.vertexColorBuffer.itemSize, gl.FLOAT, false, 0, 0);
-        
+            if (shaderProgram.vertexColorAttribute != undefined) {
+                gl.bindBuffer(gl.ARRAY_BUFFER, this.vertexColorBuffer);
+                gl.vertexAttribPointer(shaderProgram.vertexColorAttribute, this.vertexColorBuffer.itemSize, gl.FLOAT, false, 0, 0);
+            }
+            
             gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, this.vertexIndexBuffer);
             setMatrixUniforms(shaderProgram);
             gl.drawElements(gl.TRIANGLES, this.vertexIndexBuffer.numItems, gl.UNSIGNED_SHORT, 0);

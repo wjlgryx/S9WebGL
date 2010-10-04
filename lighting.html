@@ -10,7 +10,9 @@
 
 WebGL Template  v.1
 
-index.html
+lighting.html
+
+Based on Lesson16 of Learn WebGL
 
 Benjamin Blundell
 
@@ -114,11 +116,11 @@ $(function(){
 // ****************************************************
 
 $S.setupResources = function () {
-    $RL.addFragmentShader("shaders/basic-fs.txt", "basicfrag");
-    $RL.addVertexShader("shaders/basic-vs.txt", "basicvert");
+    $RL.addFragmentShader("shaders/per-fragment-lighting-fs.txt", "perpixelfrag");
+    $RL.addVertexShader("shaders/per-fragment-lighting-vs.txt", "perpixelvert");
     
-    $RL.addTexture("textures/world.png","world");
     $RL.addTexture("textures/world_night.gif","worldnight");
+    $RL.addTexture("textures/world.gif","world");
 }
 
 // ****************************************************
@@ -131,23 +133,51 @@ $S.preLoop = function () {
     sphere = createSphere(50,50);
 
     // create Shader
-    shader = createShaders("basicvert","basicfrag", "basic");
+    shader = createShaders("perpixelvert","perpixelfrag", "lighting");
     
     // link variables and shader variables 
-    $S.setActiveShader("basic");
+    $S.setActiveShader("lighting");
    
     shader.vertexPositionAttribute = gl.getAttribLocation(shader, "aVertexPosition");
     gl.enableVertexAttribArray(shader.vertexPositionAttribute);
-
-    shader.vertexColorAttribute = gl.getAttribLocation(shader, "aVertexColor");
-    gl.enableVertexAttribArray(shader.vertexColorAttribute);
+    
+    shader.vertexNormalAttribute = gl.getAttribLocation(shader, "aVertexNormal");
+    gl.enableVertexAttribArray(shader.vertexNormalAttribute);
     
     shader.textureCoordAttribute = gl.getAttribLocation(shader, "aTextureCoord");
     gl.enableVertexAttribArray(shader.textureCoordAttribute);
 
-    shader.pMatrixUniform = gl.getUniformLocation(shader, "uPMatrix");
-    shader.mvMatrixUniform = gl.getUniformLocation(shader, "uMVMatrix");
- 
+    shader.pMatrixUniform   = gl.getUniformLocation(shader, "uPMatrix");
+    shader.mvMatrixUniform  = gl.getUniformLocation(shader, "uMVMatrix");
+    shader.nMatrixUniform   = gl.getUniformLocation(shader, "uNMatrix");
+    shader.samplerUniform   = gl.getUniformLocation(shader, "uSampler");
+
+    shader.materialAmbientColorUniform  = gl.getUniformLocation(shader, "uMaterialAmbientColor");
+    shader.materialDiffuseColorUniform  = gl.getUniformLocation(shader, "uMaterialDiffuseColor");
+    shader.materialSpecularColorUniform = gl.getUniformLocation(shader, "uMaterialSpecularColor");
+    shader.materialShininessUniform     = gl.getUniformLocation(shader, "uMaterialShininess");
+    shader.materialEmissiveColorUniform = gl.getUniformLocation(shader, "uMaterialEmissiveColor");
+    shader.ambientLightingColorUniform  = gl.getUniformLocation(shader, "uAmbientLightingColor");
+    shader.pointLightingLocationUniform = gl.getUniformLocation(shader, "uPointLightingLocation");
+    shader.pointLightingSpecularColorUniform    = gl.getUniformLocation(shader, "uPointLightingSpecularColor");
+    shader.pointLightingDiffuseColorUniform     = gl.getUniformLocation(shader, "uPointLightingDiffuseColor");
+   
+   
+   
+    // Fixed variables for now
+    
+    gl.uniform3f(shader.ambientLightingColorUniform, 0.1, 0.1, 0.1);
+    gl.uniform3f(shader.pointLightingLocationUniform, 0, 5, 10);
+    gl.uniform3f(shader.pointLightingDiffuseColorUniform, 0.5, 0.5, 0.5);
+    gl.uniform3f(shader.pointLightingSpecularColorUniform, 0.5, 0.5, 0.5);
+
+    gl.uniform3f(shader.materialAmbientColorUniform, 1.0, 1.0, 1.0);
+    gl.uniform3f(shader.materialDiffuseColorUniform, 1.0, 1.0, 1.0);
+    gl.uniform3f(shader.materialSpecularColorUniform, 1.5, 1.5, 1.5);
+    gl.uniform1f(shader.materialShininessUniform, 5);
+    gl.uniform3f(shader.materialEmissiveColorUniform, 0.5, 0.5, 0.6);
+        
+   
 }
 
 // ****************************************************
@@ -174,7 +204,7 @@ $S.draw = function () {
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
     perspective(50, gl.viewportWidth / gl.viewportHeight, 0.1, 100.0);
-    loadIdentity();
+    loadIdentity();  
     
     mvTranslate([0.0, 0.0, -10.0]);
    
@@ -182,8 +212,9 @@ $S.draw = function () {
     
     mvRotate(rotateX,[1.0,0.0,0.0]); 
     mvRotate(rotateY,[0.0,1.0,0.0]);  
-    
-    gl.bindTexture(gl.TEXTURE_2D, $R["worldnight"]);
+   
+    gl.bindTexture(gl.TEXTURE_2D, $R["world"]);
+    gl.uniform1i(shader.samplerUniform, 0);
     
     sphere.draw();
 }    
