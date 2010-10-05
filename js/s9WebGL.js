@@ -32,7 +32,9 @@ http://creativecommons.org/licenses/by-nc-sa/3.0/
 
 var gl;
 
-var DEBUG = false;
+var DEBUG = true;
+
+// Debug mode does seem to have some side-effects!
 
 // ****************************************************
 // S9 Web GL 'Class' that defines everything
@@ -187,6 +189,43 @@ var ResourceLoader = {
 	        ResourceLoader.resourceByTag[tag] = texture;
         }
     },
+    
+    // Take the start of a path and add on at least 00 -> 05 for each!
+    // currently, only takes GIFs
+    
+    addTextureCube : function (path, tag) {
+
+        var texture = gl.createTexture();
+      
+        var texImages = new Array();
+        
+        var loadedTextures = 0;
+      
+        for (var i= 0; i < 6; ++i){
+      
+            texImages[i] = new Image();
+          
+            texImages[i].cubeID = i;
+                    
+            texImages[i].onload = function() {
+                gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
+                gl.bindTexture(gl.TEXTURE_CUBE_MAP,texture);
+                gl.texImage2D(gl.TEXTURE_CUBE_MAP_POSITIVE_X + this.cubeID, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, this);
+                gl.generateMipmap(gl.TEXTURE_CUBE);
+                gl.bindTexture(gl.TEXTURE_CUBE_MAP, null);
+                
+              
+            }
+            
+            texImages[i].src = path + "_0" + i + ".gif";
+            if (tag == undefined) tag = "r" + this.resources.length;
+            ResourceLoader.resources.push( [texture,tag] );
+            ResourceLoader.resourceByTag[tag] = texture;
+        
+        }
+            
+    },
+  
 
     _addVertexShader : function (response) {
         if (DEBUG) alert("Compiling Vertex Shader");
@@ -208,32 +247,36 @@ var ResourceLoader = {
     
     _load : function () {
     
+        // Only make AJAX Calls for things that aren't images
+    
         $.each(ResourceLoader.resources,function(index,item) {
           
+            // cheat for now and assume that if the item is length 3 we are good to go 
+            if (item.length == 3){
+          
             // JQUERY HAS NO FAILURE method in its Ajax Class.... fail!
-            $.ajax({
-                url: item[0],
-                success: function(data){
-                 
-                    if (data){
-                        if (DEBUG) alert("Loaded " + item[0] + "\n\n");
-                        ResourceLoader.nLoaded--;
-
-                        var ro = item[2](data);
-                       
-                        ResourceLoader.resourceByTag[item[1]] = ro;
-                        
-                        if (ResourceLoader.nLoaded == 0)
-                            S9WebGL.prototype._allIsLoaded();
-                    }else{
-                        alert('Data file ' + item[0] + 'was empty!');
-         
-                    }     
-                },
+                $.ajax({
+                    url: item[0],
+                    success: function(data){
+                     
+                        if (data){
+                            if (DEBUG) alert("Loaded " + item[0] + "\n\n");
+                            ResourceLoader.nLoaded--;
+    
+                            var ro = item[2](data);
+                           
+                            ResourceLoader.resourceByTag[item[1]] = ro;
+                            
+                            if (ResourceLoader.nLoaded == 0)
+                                S9WebGL.prototype._allIsLoaded();
+                        }else{
+                            alert('Data file ' + item[0] + 'was empty!');
+             
+                        }     
+                    },
                 
-                 
-            
-            });
+                });
+            }
         });
 
     },
@@ -451,22 +494,27 @@ function Primitive() {
     
         if (shaderProgram != "none"){
     
-            gl.bindBuffer(gl.ARRAY_BUFFER, this.vertexTextureCoordBuffer);
-            gl.vertexAttribPointer(shaderProgram.textureCoordAttribute, this.vertexTextureCoordBuffer.itemSize, gl.FLOAT, false, 0, 0);
-    
-            gl.bindBuffer(gl.ARRAY_BUFFER, this.vertexPositionBuffer);
-            gl.vertexAttribPointer(shaderProgram.vertexPositionAttribute, this.vertexPositionBuffer.itemSize, gl.FLOAT, false, 0, 0);
-      
-            if (shaderProgram.vertexNormalAttribute != undefined) {
+            if (shaderProgram.textureCoordAttribute != -1 && shaderProgram.textureCoordAttribute != undefined) {
+                gl.bindBuffer(gl.ARRAY_BUFFER, this.vertexTextureCoordBuffer);
+                gl.vertexAttribPointer(shaderProgram.textureCoordAttribute, this.vertexTextureCoordBuffer.itemSize, gl.FLOAT, false, 0, 0);
+            }
+            
+            if (shaderProgram.vertexPositionAttribute != -1 && shaderProgram.vertexPositionAttribute != undefined) {
+                gl.bindBuffer(gl.ARRAY_BUFFER, this.vertexPositionBuffer);
+                gl.vertexAttribPointer(shaderProgram.vertexPositionAttribute, this.vertexPositionBuffer.itemSize, gl.FLOAT, false, 0, 0);
+            }
+            
+            if (shaderProgram.vertexNormalAttribute != -1 && shaderProgram.vertexNormalAttribute != undefined) {
                 gl.bindBuffer(gl.ARRAY_BUFFER, this.vertexNormalBuffer);
                 gl.vertexAttribPointer(shaderProgram.vertexNormalAttribute, this.vertexNormalBuffer.itemSize, gl.FLOAT, false, 0, 0);
             }
         
-            if (shaderProgram.vertexColorAttribute != undefined) {
+            if (shaderProgram.vertexColorAttribute != -1 && shaderProgram.vertexColorAttribute != undefined) {
                 gl.bindBuffer(gl.ARRAY_BUFFER, this.vertexColorBuffer);
                 gl.vertexAttribPointer(shaderProgram.vertexColorAttribute, this.vertexColorBuffer.itemSize, gl.FLOAT, false, 0, 0);
             }
             
+          
             gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, this.vertexIndexBuffer);
             setMatrixUniforms(shaderProgram);
             gl.drawElements(gl.TRIANGLES, this.vertexIndexBuffer.numItems, gl.UNSIGNED_SHORT, 0);

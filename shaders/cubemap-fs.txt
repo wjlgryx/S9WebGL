@@ -1,0 +1,12 @@
+#ifdef GL_ES
+precision highp float;
+#endif
+
+varying vec3 vTextureCoord;
+varying vec4 vColor;
+
+uniform samplerCube cSampler;
+
+void main(void) {
+    gl_FragColor = textureCube(cSampler,vTextureCoord);
+}
