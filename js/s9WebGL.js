@@ -208,21 +208,36 @@ var ResourceLoader = {
             texImages[i].cubeID = i;
                     
             texImages[i].onload = function() {
-                gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
-                gl.bindTexture(gl.TEXTURE_CUBE_MAP,texture);
-                gl.texImage2D(gl.TEXTURE_CUBE_MAP_POSITIVE_X + this.cubeID, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, this);
-                gl.generateMipmap(gl.TEXTURE_CUBE);
-                gl.bindTexture(gl.TEXTURE_CUBE_MAP, null);
+            
+                loadedTextures ++;
                 
-              
+                if (loadedTextures == 6){
+                    gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
+                    gl.bindTexture(gl.TEXTURE_CUBE_MAP,texture);
+                   // gl.texParameteri(gl.TEXTURE_CUBE_MAP, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+                  //  gl.texParameteri(gl.TEXTURE_CUBE_MAP, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+                  //  gl.texParameteri(gl.TEXTURE_CUBE_MAP, gl.TEXTURE_WRAP_R, gl.CLAMP_TO_EDGE);
+                    gl.texParameteri(gl.TEXTURE_CUBE_MAP, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+                    gl.texParameteri(gl.TEXTURE_CUBE_MAP, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+                //    gl.generateMipmap(gl.TEXTURE_CUBE_MAP);
+                    
+                    for (var j= 0; j < 6; ++j){
+                        gl.texImage2D(gl.TEXTURE_CUBE_MAP_POSITIVE_X + j, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, texImages[j]);
+                    }
+                    
+                    gl.bindTexture(gl.TEXTURE_CUBE_MAP, null);
+                }
+                    
             }
             
             texImages[i].src = path + "_0" + i + ".gif";
-            if (tag == undefined) tag = "r" + this.resources.length;
-            ResourceLoader.resources.push( [texture,tag] );
-            ResourceLoader.resourceByTag[tag] = texture;
-        
+         
+           
         }
+        
+        if (tag == undefined) tag = "r" + this.resources.length;
+        ResourceLoader.resources.push( [texture,tag] );
+        ResourceLoader.resourceByTag[tag] = texture;
             
     },
   

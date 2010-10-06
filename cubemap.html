@@ -120,8 +120,8 @@ $S.setupResources = function () {
     $RL.addVertexShader("shaders/cubemap-vs.txt", "cubemapvert");
     
     // Add the starting url - the function grabs the remaining 6
-    $RL.addTextureCube("textures/world_night_cube/cube","worldnight_cube");
-
+    // $RL.addTextureCube("textures/world_night_cube/cube","worldnight_cube");
+    $RL.addTextureCube("textures/world_day_cube/cube","worldday_cube");
 }
 
 // ****************************************************
@@ -129,8 +129,7 @@ $S.setupResources = function () {
 // ****************************************************
 
 $S.preLoop = function () {
-   
-      
+  
     sphere = createSphere(50,50);
 
     // create Shader
@@ -142,17 +141,16 @@ $S.preLoop = function () {
     shader.vertexPositionAttribute = gl.getAttribLocation(shader, "aVertexPosition");
     gl.enableVertexAttribArray(shader.vertexPositionAttribute);
     
-  //  shader.vertexNormalAttribute = gl.getAttribLocation(shader, "aVertexNormal");
-  //  gl.enableVertexAttribArray(shader.vertexNormalAttribute);
+    shader.vertexNormalAttribute = gl.getAttribLocation(shader, "aVertexNormal");
+    gl.enableVertexAttribArray(shader.vertexNormalAttribute);
     
-   // shader.textureCoordAttribute = gl.getAttribLocation(shader, "aTextureCoord");
-   // gl.enableVertexAttribArray(shader.textureCoordAttribute);
+    shader.vertexColorAttribute = gl.getAttribLocation(shader, "aVertexColor");
+    gl.enableVertexAttribArray(shader.vertexColorAttribute);
+
 
     shader.pMatrixUniform   = gl.getUniformLocation(shader, "uPMatrix");
     shader.mvMatrixUniform  = gl.getUniformLocation(shader, "uMVMatrix");
- //   shader.nMatrixUniform   = gl.getUniformLocation(shader, "uNMatrix");
   
-          
    
 }
 
@@ -189,8 +187,8 @@ $S.draw = function () {
     mvRotate(rotateX,[1.0,0.0,0.0]); 
     mvRotate(rotateY,[0.0,1.0,0.0]);  
    
-    gl.bindTexture(gl.TEXTURE_CUBE_MAP, $R["worldnight_cube"]);
-  //  gl.uniform1i(shader.samplerUniform, 0);
+    gl.bindTexture(gl.TEXTURE_CUBE_MAP, $R["worldday_cube"]);
+   // gl.uniform1i(shader.samplerUniform, 0);
     
     sphere.draw();
 }    
