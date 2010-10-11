@@ -10,7 +10,7 @@
 
 WebGL Template  v.1
 
-cubemap.html
+world.html
 
 Based on Lesson16 of Learn WebGL
 
@@ -116,8 +116,8 @@ $(function(){
 // ****************************************************
 
 $S.setupResources = function () {
-    $RL.addFragmentShader("shaders/cubemap-fs.txt", "cubemapfrag");
-    $RL.addVertexShader("shaders/cubemap-vs.txt", "cubemapvert");
+    $RL.addFragmentShader("shaders/world-fs.txt", "worldfrag");
+    $RL.addVertexShader("shaders/world-vs.txt", "worldvert");
     
     // Add the starting url - the function grabs the remaining 6
     // $RL.addTextureCube("textures/world_night_cube/cube","worldnight_cube");
@@ -133,10 +133,10 @@ $S.preLoop = function () {
     sphere = createSphere(50,50);
 
     // create Shader
-    shader = createShaders("cubemapvert","cubemapfrag", "cubemap");
+    shader = createShaders("worldvert","worldfrag", "worldmap");
     
     // link variables and shader variables 
-    $S.setActiveShader("cubemap");
+    $S.setActiveShader("worldmap");
    
     shader.vertexPositionAttribute = gl.getAttribLocation(shader, "aVertexPosition");
     gl.enableVertexAttribArray(shader.vertexPositionAttribute);
@@ -144,14 +144,39 @@ $S.preLoop = function () {
     shader.vertexNormalAttribute = gl.getAttribLocation(shader, "aVertexNormal");
     gl.enableVertexAttribArray(shader.vertexNormalAttribute);
     
-    shader.vertexColorAttribute = gl.getAttribLocation(shader, "aVertexColor");
-    gl.enableVertexAttribArray(shader.vertexColorAttribute);
-
+    shader.textureCoordAttribute = gl.getAttribLocation(shader, "aTextureCoord");
+    gl.enableVertexAttribArray(shader.textureCoordAttribute);
 
     shader.pMatrixUniform   = gl.getUniformLocation(shader, "uPMatrix");
     shader.mvMatrixUniform  = gl.getUniformLocation(shader, "uMVMatrix");
-  
+    shader.nMatrixUniform   = gl.getUniformLocation(shader, "uNMatrix");
+    shader.samplerUniform   = gl.getUniformLocation(shader, "uSampler");
+
+    shader.materialAmbientColorUniform  = gl.getUniformLocation(shader, "uMaterialAmbientColor");
+    shader.materialDiffuseColorUniform  = gl.getUniformLocation(shader, "uMaterialDiffuseColor");
+    shader.materialSpecularColorUniform = gl.getUniformLocation(shader, "uMaterialSpecularColor");
+    shader.materialShininessUniform     = gl.getUniformLocation(shader, "uMaterialShininess");
+    shader.materialEmissiveColorUniform = gl.getUniformLocation(shader, "uMaterialEmissiveColor");
+    shader.ambientLightingColorUniform  = gl.getUniformLocation(shader, "uAmbientLightingColor");
+    shader.pointLightingLocationUniform = gl.getUniformLocation(shader, "uPointLightingLocation");
+    shader.pointLightingSpecularColorUniform    = gl.getUniformLocation(shader, "uPointLightingSpecularColor");
+    shader.pointLightingDiffuseColorUniform     = gl.getUniformLocation(shader, "uPointLightingDiffuseColor");
    
+   
+   
+    // Fixed variables for now
+    
+    gl.uniform3f(shader.ambientLightingColorUniform, 0.2, 0.2, 0.2);
+    gl.uniform3f(shader.pointLightingLocationUniform, 0, 5, 10);
+    gl.uniform3f(shader.pointLightingDiffuseColorUniform, 0.5, 0.5, 0.5);
+    gl.uniform3f(shader.pointLightingSpecularColorUniform, 0.5, 0.5, 0.5);
+
+    gl.uniform3f(shader.materialAmbientColorUniform, 1.0, 1.0, 1.0);
+    gl.uniform3f(shader.materialDiffuseColorUniform, 1.0, 1.0, 1.0);
+    gl.uniform3f(shader.materialSpecularColorUniform, 1.5, 1.5, 1.5);
+    gl.uniform1f(shader.materialShininessUniform, 10);
+    gl.uniform3f(shader.materialEmissiveColorUniform, 0.5, 0.5, 0.5);
+         
 }
 
 // ****************************************************

@@ -131,9 +131,9 @@ S9WebGL.initialize = function(){
 };
 
 S9WebGL.setActiveShader = function(tag) {
-     var shader = S9WebGL.shaders[tag];
-     S9WebGL.activeShader = tag;
-     gl.useProgram(shader);
+    var shader = S9WebGL.shaders[tag];
+    S9WebGL.activeShader = tag;
+    gl.useProgram(shader);
 };
 
 
@@ -171,10 +171,12 @@ var ResourceLoader = {
         var texture = gl.createTexture();
         texture.image = texImage;
         texImage.src = path;
+        this.nLoaded++;
         
         // SHOULD CHECK FOR RGB / RGBA here!
         
         texImage.onload = function() {
+        
             gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
             gl.bindTexture(gl.TEXTURE_2D,texture);
             gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, texture.image);
@@ -187,6 +189,8 @@ var ResourceLoader = {
             if (tag == undefined) tag = "r" + this.resources.length;
 	        ResourceLoader.resources.push( [texture,tag] );
 	        ResourceLoader.resourceByTag[tag] = texture;
+	        
+	        ResourceLoader._checkStatus();
         }
     },
     
@@ -204,23 +208,25 @@ var ResourceLoader = {
         for (var i= 0; i < 6; ++i){
       
             texImages[i] = new Image();
+            this.nLoaded++;
           
             texImages[i].cubeID = i;
                     
             texImages[i].onload = function() {
-            
+                
                 loadedTextures ++;
+                ResourceLoader._checkStatus();
                 
                 if (loadedTextures == 6){
                     gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
                     gl.bindTexture(gl.TEXTURE_CUBE_MAP,texture);
-                   // gl.texParameteri(gl.TEXTURE_CUBE_MAP, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
-                  //  gl.texParameteri(gl.TEXTURE_CUBE_MAP, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-                  //  gl.texParameteri(gl.TEXTURE_CUBE_MAP, gl.TEXTURE_WRAP_R, gl.CLAMP_TO_EDGE);
+                    
+                 
+                    // Could really do with some mipmapping I think
+                 
                     gl.texParameteri(gl.TEXTURE_CUBE_MAP, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
                     gl.texParameteri(gl.TEXTURE_CUBE_MAP, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
-                //    gl.generateMipmap(gl.TEXTURE_CUBE_MAP);
-                    
+                       
                     for (var j= 0; j < 6; ++j){
                         gl.texImage2D(gl.TEXTURE_CUBE_MAP_POSITIVE_X + j, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, texImages[j]);
                     }
@@ -231,14 +237,25 @@ var ResourceLoader = {
             }
             
             texImages[i].src = path + "_0" + i + ".gif";
-         
-           
+
         }
         
         if (tag == undefined) tag = "r" + this.resources.length;
         ResourceLoader.resources.push( [texture,tag] );
         ResourceLoader.resourceByTag[tag] = texture;
             
+    },
+    
+    _checkStatus : function() {
+        this.nLoaded--;
+        $( "#progressbar" ).progressbar({
+		    value: (this.nToLoad - this.nLoaded) / this.nToLoad * 100
+        });
+        if (this.nLoaded == 0){
+            $( "#dialog-modal" ).dialog( "close" );
+            $( "#progressbar" ).progressbar("destroy");
+        }
+    
     },
   
 
@@ -263,6 +280,20 @@ var ResourceLoader = {
     _load : function () {
     
         // Only make AJAX Calls for things that aren't images
+        // here is where we load the dialog for loading
+        
+        this.nToLoad = this.nLoaded;
+        
+        $( "#dialog" ).dialog( "destroy" );
+
+        $( "#dialog-modal" ).dialog({
+            height: 110,
+            modal: true
+        });
+    
+        $( "#progressbar" ).progressbar({
+			value: 0
+		});
     
         $.each(ResourceLoader.resources,function(index,item) {
           
@@ -276,7 +307,7 @@ var ResourceLoader = {
                      
                         if (data){
                             if (DEBUG) alert("Loaded " + item[0] + "\n\n");
-                            ResourceLoader.nLoaded--;
+                            ResourceLoader._checkStatus();
     
                             var ro = item[2](data);
                            
@@ -305,6 +336,7 @@ var ResourceLoader = {
 // Actual 'singleton' for handling things - maybe use a $R ?
 var $R = ResourceLoader.resourceByTag;
 var $RL = ResourceLoader;
+
 
 // ****************************************************
 // Shader Functions for loading and compiling
@@ -537,47 +569,51 @@ function Primitive() {
     }
 }
 
-function createCube() {
+function createCuboid(width,height,depth) {
     var cube = new Primitive;
    
     gl.bindBuffer(gl.ARRAY_BUFFER, cube.vertexPositionBuffer);
    
+    width /=2;
+    height /=2;
+    depth /=2;
+     
     vertices = [
       // Front face
-      -1.0, -1.0,  1.0,
-       1.0, -1.0,  1.0,
-       1.0,  1.0,  1.0,
-      -1.0,  1.0,  1.0,
+      -width, -height,  depth,
+       width, -height,  depth,
+       width,  height,  depth,
+      -width,  height,  depth,
 
       // Back face
-      -1.0, -1.0, -1.0,
-      -1.0,  1.0, -1.0,
-       1.0,  1.0, -1.0,
-       1.0, -1.0, -1.0,
+      -width, -height, -depth,
+      -width,  height, -depth,
+       width,  height, -depth,
+       width, -height, -depth,
 
       // Top face
-      -1.0,  1.0, -1.0,
-      -1.0,  1.0,  1.0,
-       1.0,  1.0,  1.0,
-       1.0,  1.0, -1.0,
+      -width,  height, -depth,
+      -width,  height,  depth,
+       width,  height,  depth,
+       width,  height, -depth,
 
       // Bottom face
-      -1.0, -1.0, -1.0,
-       1.0, -1.0, -1.0,
-       1.0, -1.0,  1.0,
-      -1.0, -1.0,  1.0,
+      -width, -height, -depth,
+       width, -height, -depth,
+       width, -height,  depth,
+      -width, -height,  depth,
 
       // Right face
-       1.0, -1.0, -1.0,
-       1.0,  1.0, -1.0,
-       1.0,  1.0,  1.0,
-       1.0, -1.0,  1.0,
+       width, -height, -depth,
+       width,  height, -depth,
+       width,  height,  depth,
+       width, -height,  depth,
 
       // Left face
-      -1.0, -1.0, -1.0,
-      -1.0, -1.0,  1.0,
-      -1.0,  1.0,  1.0,
-      -1.0,  1.0, -1.0,
+      -width, -height, -depth,
+      -width, -height,  depth,
+      -width,  height,  depth,
+      -width,  height, -depth,
     ];
     
     gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertices), gl.STATIC_DRAW);

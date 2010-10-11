@@ -1,0 +1,20 @@
+attribute vec3 aVertexPosition;
+attribute vec3 aVertexNormal;
+attribute vec2 aTextureCoord;
+attribute vec4 aVertexColor;
+
+uniform mat4 uMVMatrix;
+uniform mat4 uPMatrix;
+uniform mat4 uNMatrix;
+
+
+varying vec4 vTransformedNormal;
+varying vec4 vPosition;
+varying vec4 vColor;
+
+void main(void) {
+    vPosition = uPMatrix * uMVMatrix * vec4(aVertexPosition, 1.0);
+    gl_Position =  vPosition;
+    vColor = aVertexColor;
+    vTransformedNormal = uNMatrix * vec4(aVertexNormal, 1.0);
+}

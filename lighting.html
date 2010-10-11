@@ -128,8 +128,7 @@ $S.setupResources = function () {
 // ****************************************************
 
 $S.preLoop = function () {
-   
-      
+  
     sphere = createSphere(50,50);
 
     // create Shader
@@ -225,6 +224,12 @@ $S.draw = function () {
 </head>
 
 <body onload="S9WebGL.initialize()">
+
+     <!-- The Progress Dialog for loading resources -->
+    <div id="dialog-modal" title="Loading Resources">
+	    <div id="progressbar"></div>
+    </div>
+
     <div class="container_16" id="mainLayout">
         <div class="grid_3">&nbsp;</div>
         <div class="grid_10">
