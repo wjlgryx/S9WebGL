@@ -41,9 +41,9 @@ void main(void) {
     vec3 materialEmissiveColor = uMaterialEmissiveColor;
     float alpha = vColor.a;
 
-    materialAmbientColor = materialAmbientColor * vColor;
-    materialDiffuseColor = materialDiffuseColor * vColor;
-    materialEmissiveColor = materialEmissiveColor * vColor;
+    materialAmbientColor = materialAmbientColor * vec3(vColor.r, vColor.g, vColor.b);
+    materialDiffuseColor = materialDiffuseColor * vec3(vColor.r, vColor.g, vColor.b);
+    materialEmissiveColor = materialEmissiveColor * vec3(vColor.r, vColor.g, vColor.b);
     alpha = vColor.a;
  
 
